@@ -1,7 +1,20 @@
 "use server";
 
 import { execSync } from "child_process";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { readFileSync, writeFileSync } from "fs";
+
+import serviceAccount from "../../../serviceAccountKey.json";
+import { getDatabase } from "firebase-admin/database";
+import { get, push, ref, set, update } from "firebase/database";
+let app;
+if (!getApps().length)
+  app = initializeApp({
+    credential: cert(serviceAccount),
+    databaseURL: "https://vocoder-webapp-default-rtdb.firebaseio.com",
+  });
+const database = getDatabase();
 
 export async function runVocoder(prevState: any, formData: FormData) {
   const carrierSignal = formData.get("carrier-signal") as File;
@@ -9,7 +22,7 @@ export async function runVocoder(prevState: any, formData: FormData) {
   const showSteps = formData.get("show-steps") === "true";
   if (!carrierSignal || !modulatorSignal) {
     return {
-      error: "Must input valid a valid carrier signal and modulator signal",
+      error: "Must input a valid carrier signal and modulator signal",
     };
   }
 
@@ -26,6 +39,22 @@ export async function runVocoder(prevState: any, formData: FormData) {
   execSync(
     `ffmpeg -y -i temp/modulator_signal.wav -ar 44100 -ac 1 temp/modulator_signal_44100.wav`
   );
+
+  // save to run if user-uid exists
+  const userToken = formData.get("user-token") as string;
+  const auth = getAuth();
+  const runId = formData.get("run-id");
+  if (userToken && runId) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return {
+        error: "Invalid authentication token",
+      };
+    }
+    console.log(runId);
+  }
 
   // run vocoder
   execSync(
@@ -65,4 +94,46 @@ export async function synthesizeMidi(formData: FormData) {
     message: "success",
     buffer: Buffer.from(outputBuffer).toString("base64"),
   };
+}
+
+export async function createRun(runName: string, userToken: string) {
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const res = push(ref(database, user.uid + "/runs"), {
+      runName: runName,
+    });
+    return res.key;
+  }
+}
+
+export async function updateRunName(
+  runId: string,
+  newRunName: string,
+  userToken: string
+) {
+  if (!runId || !newRunName) return;
+
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const snapshot = await get(ref(database, user.uid + "/runs/" + runId));
+    if (!snapshot.exists()) return;
+
+    update(ref(database, user.uid + "/runs/" + runId), {
+      runName: newRunName,
+    });
+  }
 }
