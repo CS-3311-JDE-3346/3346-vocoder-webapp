@@ -128,7 +128,7 @@ export default function MidiInput() {
               value={midiSignal.name} 
               disabled={!isValid}
             >
-              {midiSignal.label}
+              {midiSignal.name}
             </SelectItem>
           ))}
         </Select>

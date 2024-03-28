@@ -12,21 +12,11 @@ import {
 } from "@nextui-org/react";
 import { useEffect, useRef, useState } from "react";
 import { WaveForm, WaveSurfer } from "wavesurfer-react";
-import RecordPlugin from "wavesurfer.js/dist/plugins/record";
 import TimelinePlugin from "wavesurfer.js/dist/plugins/timeline";
 import CreateSignalInputFromRecordingModal from "./modals/create-signal-input-from-recording-modal";
 import CreateSignalInputFromFileModal from "./modals/create-signal-input-from-file-modal";
 
-const defaultModulatorSignals = [
-  {
-    name: "Hello example",
-    label: "Hello example",
-    file_name: "/hello_example.wav",
-  },
-];
-
-export default function ModulatorSignalInput() {
-  const [signals, setSignals] = useState(defaultModulatorSignals);
+export default function ModulatorSignalInput({ signals, setSignals, onSignalAdd }) {
   const [value, setValue] = useState(new Set(["Hello example"]));
   const [isPlaying, setIsPlaying] = useState(false);
   const {
@@ -102,7 +92,7 @@ export default function ModulatorSignalInput() {
         >
           {signals.map((signal) => (
             <SelectItem key={signal.name} value={signal.name}>
-              {signal.label}
+              {signal.name}
             </SelectItem>
           ))}
         </Select>
@@ -156,6 +146,7 @@ export default function ModulatorSignalInput() {
         signalType="modulator"
         signals={signals}
         setSignals={setSignals}
+        onSignalAdd={onSignalAdd}
       />
       <CreateSignalInputFromRecordingModal
         isOpen={isOpenRecording}
@@ -163,6 +154,7 @@ export default function ModulatorSignalInput() {
         signalType="modulator"
         signals={signals}
         setSignals={setSignals}
+        onSignalAdd={onSignalAdd}
       />
     </div>
   );

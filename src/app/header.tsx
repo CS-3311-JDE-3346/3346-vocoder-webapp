@@ -9,20 +9,30 @@ import {
   Dropdown,
   DropdownItem,
   DropdownMenu,
-  DropdownTrigger
+  DropdownTrigger,
+  Listbox,
+  ListboxItem,
+  useDisclosure,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
 } from "@nextui-org/react";
 import { FaCircleInfo } from "react-icons/fa6";
 import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { app } from "../../firebase/firebaseApp";
 import React, { useState } from "react";
+import { createRun, getRuns } from "./lib/actions";
 
-export default function Header() {
+export default function Header({ runs, setRunId, setRuns }) {
   app;
   const auth = getAuth();
   const provider = new GoogleAuthProvider();
   const [user, loading] = useAuthState(auth);
-  const u = auth.currentUser;
+  const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const [selectedKeys, setSelectedKeys] = React.useState(new Set([]));
 
   const signIn = async () => {
     const result = await signInWithPopup(auth, provider);
@@ -51,7 +61,7 @@ export default function Header() {
 
   const voidFunction = () => {
     return null;
-  }
+  };
 
   const UserSettingActive = () => {
     if (user) {
@@ -92,77 +102,117 @@ export default function Header() {
   };
 
   return (
-    <header className="flex justify-between p-4 bg-blue-300 drop-shadow">
-      <div className="flex items-center">
-        <p className="mr-8 font-bold text-slate-800">Learn Vocoders</p>
-        
+    <>
+      <header className="flex justify-between p-4 bg-blue-300 drop-shadow">
+        <div className="flex items-center">
+          <p className="mr-8 font-bold text-slate-800">Learn Vocoders</p>
 
-        <Dropdown>
-          <DropdownTrigger>
-            <Button className="bg-blue-700 text-slate-300">File</Button>
-          </DropdownTrigger>
-          <DropdownMenu aria-label="File Menu">
+          {user && (
+            <Dropdown>
+              <DropdownTrigger>
+                <Button className="bg-blue-700 text-slate-300">File</Button>
+              </DropdownTrigger>
+              <DropdownMenu aria-label="File Menu">
+                <DropdownItem
+                  key="new"
+                  onPress={async () => {
+                    if (user) {
+                      const idToken = await user.getIdToken();
+                      const runId = await createRun("Untitled Run", idToken);
+                      setRunId(runId);
+                      const runs = await getRuns(idToken);
+                      setRuns(runs);
+                    }
+                  }}
+                >
+                  New
+                </DropdownItem>
 
-            <DropdownItem
-              key="new"
-              onPress={() => {
-                voidFunction();
-              }}
-            >
-              New
-            </DropdownItem>
+                <DropdownItem key="open" onPress={onOpen}>
+                  Open
+                </DropdownItem>
 
-            <DropdownItem
-              key="open"
-              onPress={() => {
-                voidFunction();
-              }}
-            >
-              Open
-            </DropdownItem>
+                <DropdownItem
+                  key="save"
+                  onPress={() => {
+                    voidFunction();
+                  }}
+                >
+                  Save
+                </DropdownItem>
 
-            <DropdownItem
-              key="save"
-              onPress={() => {
-                voidFunction();
-              }}
-            >
-              Save
-            </DropdownItem>
+                <DropdownItem
+                  key="save-as"
+                  onPress={() => {
+                    voidFunction();
+                  }}
+                >
+                  Save As
+                </DropdownItem>
 
-            <DropdownItem
-              key="save-as"
-              onPress={() => {
-                voidFunction();
-              }}
-            >
-              Save As
-            </DropdownItem>
-
-            <DropdownItem
-              key="export_as_pdf"
-              onPress={() => {
-                voidFunction();
-              }}
-            >
-              Export as PDF
-            </DropdownItem>
-
-          </DropdownMenu>
-        </Dropdown>
-
-      </div>
-      <div className="flex">
-        <UserSettingActive /> &nbsp;&nbsp;
-        <SignStat /> &nbsp;&nbsp;
-        <Switch
-          defaultChecked={false}
-          color="primary"
-          endContent={<FaCircleInfo />}
-        >
-          Explanation mode
-        </Switch>
-      </div>
-    </header>
+                <DropdownItem
+                  key="export_as_pdf"
+                  onPress={() => {
+                    voidFunction();
+                  }}
+                >
+                  Export as PDF
+                </DropdownItem>
+              </DropdownMenu>
+            </Dropdown>
+          )}
+        </div>
+        <div className="flex">
+          <UserSettingActive /> &nbsp;&nbsp;
+          <SignStat /> &nbsp;&nbsp;
+          <Switch
+            defaultChecked={false}
+            color="primary"
+            endContent={<FaCircleInfo />}
+          >
+            Explanation mode
+          </Switch>
+        </div>
+      </header>
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Open an Existing Run
+              </ModalHeader>
+              <ModalBody>
+                <Listbox
+                  disallowEmptySelection
+                  selectionMode="single"
+                  selectedKeys={selectedKeys}
+                  onSelectionChange={setSelectedKeys}
+                  aria-label="select run"
+                >
+                  {Object.entries(runs).map(([id, info]) => (
+                    <ListboxItem key={id}>{info.runName}</ListboxItem>
+                  ))}
+                </Listbox>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>
+                  Close
+                </Button>
+                <Button
+                  color="primary"
+                  onPress={() => {
+                    onClose();
+                    const runId = Array.from(selectedKeys)[0];
+                    setRunId(runId);
+                  }}
+                >
+                  Open
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+    </>
   );
 }

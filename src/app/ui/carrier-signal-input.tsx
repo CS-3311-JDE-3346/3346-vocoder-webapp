@@ -18,40 +18,19 @@ import CreateSignalInputFromMidiModal from "./modals/create-signal-input-from-mi
 import { synthesizeMidi } from "../lib/actions";
 import { base64ToArrayBuffer } from "./utils";
 
-const defaultCarrierSignals = [
-  // {
-  //   name: "Sine wave",
-  //   label: "Sine wave",
-  //   file_name: "/sine_example.wav",
-  //   audio_name: "/sine_example.wav",
-  //   isAudio: true,
-  // },
-  {
-    name: "Twinkle Twinkle Little Star",
-    label: "Twinkle Twinkle Little Star",
-    file_name: "/twinkle_twinkle_little_star.mid",
-    audio_name: undefined, // synthesized by calling server action
-    isAudio: false,
-  },
-];
-
 const defaultSynthesizers = [
   {
     name: "Guitars",
-    label: "Guitars",
   },
   {
     name: "Drums",
-    label: "Drums",
   },
   {
     name: "Piano",
-    label: "Piano",
   },
 ];
 
-export default function CarrierSignalInput({}) {
-  const [signals, setSignals] = useState(defaultCarrierSignals);
+export default function CarrierSignalInput({signals, setSignals, onSignalAdd}) {
   const [value, setValue] = useState("Twinkle Twinkle Little Star");
   const [synth, setSynth] = useState("Guitars");
   const [audioName, setAudioName] = useState<string | undefined>();
@@ -151,7 +130,7 @@ export default function CarrierSignalInput({}) {
           className="hidden"
           name={`carrier-signal`}
           readOnly
-          value={audioName}
+          value={audioName ? audioName : ''}
         />
         <Select
           label="Carrier Signal"
@@ -161,7 +140,7 @@ export default function CarrierSignalInput({}) {
         >
           {signals.map((signal) => (
             <SelectItem key={signal.name} value={signal.name}>
-              {signal.label}
+              {signal.name}
             </SelectItem>
           ))}
         </Select>
@@ -212,7 +191,7 @@ export default function CarrierSignalInput({}) {
             >
               {defaultSynthesizers.map((synth) => (
                 <SelectItem key={synth.name} value={synth.name}>
-                  {synth.label}
+                  {synth.name}
                 </SelectItem>
               ))}
             </Select>
@@ -239,6 +218,7 @@ export default function CarrierSignalInput({}) {
         signalType="carrier"
         signals={signals}
         setSignals={setSignals}
+        onSignalAdd={onSignalAdd}
       />
       <CreateSignalInputFromMidiModal
         isOpen={isOpenMidi}
@@ -246,6 +226,7 @@ export default function CarrierSignalInput({}) {
         signalType="carrier"
         signals={signals}
         setSignals={setSignals}
+        onSignalAdd={onSignalAdd}
       />
     </div>
   );
