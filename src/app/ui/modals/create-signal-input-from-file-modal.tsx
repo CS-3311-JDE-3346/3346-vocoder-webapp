@@ -15,6 +15,7 @@ export default function CreateSignalInputFromFileModal({
   signalType,
   signals,
   setSignals,
+  onSignalAdd,
 }) {
   const [formError, setFormError] = useState<string>("");
 
@@ -36,16 +37,14 @@ export default function CreateSignalInputFromFileModal({
       return;
     }
 
-    setSignals((prev) => [
-      ...prev,
-      {
-        name: formData.get("name"),
-        label: formData.get("name"),
-        file_name: URL.createObjectURL(formData.get("file")),
-        audio_name: URL.createObjectURL(formData.get("file")),
-        isAudio: true,
-      },
-    ]);
+    const newSignal = {
+      name: formData.get("name"),
+      file_name: URL.createObjectURL(formData.get("file")),
+      audio_name: URL.createObjectURL(formData.get("file")),
+      isAudio: true,
+    };
+    setSignals((prev) => [...prev, newSignal]);
+    onSignalAdd(newSignal);
 
     setFormError("");
     onClose();

@@ -15,6 +15,7 @@ export default function CreateSignalInputFromMidiModal({
   signalType,
   signals,
   setSignals,
+  onSignalAdd,
 }) {
   const [formError, setFormError] = useState<string>("");
 
@@ -36,15 +37,13 @@ export default function CreateSignalInputFromMidiModal({
       return;
     }
 
-    setSignals((prev) => [
-      ...prev,
-      {
-        name: formData.get("name"),
-        label: formData.get("name"),
-        file_name: URL.createObjectURL(formData.get("file")),
-        isAudio: false,
-      },
-    ]);
+    const newSignal = {
+      name: formData.get("name"),
+      file_name: URL.createObjectURL(formData.get("file")),
+      isAudio: false,
+    };
+    setSignals((prev) => [...prev, newSignal]);
+    onSignalAdd(newSignal);
 
     setFormError("");
     onClose();

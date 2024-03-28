@@ -1,7 +1,30 @@
 "use server";
 
 import { execSync } from "child_process";
+import { initializeApp, cert, getApps, getApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { readFileSync, writeFileSync } from "fs";
+
+import serviceAccount from "../../../serviceAccountKey.json";
+import { getDatabase } from "firebase-admin/database";
+import { getStorage } from "firebase-admin/storage";
+
+import { get, push, ref, set, update } from "firebase/database";
+import { v4 as uuidv4 } from "uuid";
+import { defaultCarrierSignals, defaultModulatorSignals } from "../constants";
+
+let app;
+if (getApps().length > 0) {
+  app = getApp();
+} else {
+  app = initializeApp({
+    credential: cert(serviceAccount),
+    databaseURL: "https://vocoder-webapp-default-rtdb.firebaseio.com",
+    storageBucket: "gs://vocoder-webapp.appspot.com",
+  });
+}
+const database = getDatabase();
+const bucket = getStorage().bucket();
 
 export async function runVocoder(prevState: any, formData: FormData) {
   const carrierSignal = formData.get("carrier-signal") as File;
@@ -9,7 +32,7 @@ export async function runVocoder(prevState: any, formData: FormData) {
   const showSteps = formData.get("show-steps") === "true";
   if (!carrierSignal || !modulatorSignal) {
     return {
-      error: "Must input valid a valid carrier signal and modulator signal",
+      error: "Must input a valid carrier signal and modulator signal",
     };
   }
 
@@ -26,6 +49,21 @@ export async function runVocoder(prevState: any, formData: FormData) {
   execSync(
     `ffmpeg -y -i temp/modulator_signal.wav -ar 44100 -ac 1 temp/modulator_signal_44100.wav`
   );
+
+  // save to run if user-uid exists
+  const userToken = formData.get("user-token") as string;
+  const auth = getAuth();
+  const runId = formData.get("run-id");
+  if (userToken && runId) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return {
+        error: "Invalid authentication token",
+      };
+    }
+  }
 
   // run vocoder
   execSync(
@@ -65,4 +103,168 @@ export async function synthesizeMidi(formData: FormData) {
     message: "success",
     buffer: Buffer.from(outputBuffer).toString("base64"),
   };
+}
+
+export async function getRuns(userToken: string) {
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const res = await get(ref(database, user.uid + "/runs"));
+    if (res.exists()) {
+      return res.val();
+    } else {
+      return {};
+    }
+  }
+}
+
+export async function getRunInfo(runId: string, userToken: string) {
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const res = await get(ref(database, user.uid + "/runs/" + runId));
+    if (res.exists()) {
+      // download files for signals
+      const signalInfos = res.val();
+      const signalInfosNames = ["carrierSignals", "modulatorSignals"];
+      for (let signalInfoName of signalInfosNames) {
+        // carrierSignals and modulatorSignals
+        const signalInfo = signalInfos[signalInfoName];
+        for (let signal of Object.values(signalInfo)) {
+          // each individual signal
+          const filePath = user.uid + "/runs/" + runId + "/" + signal.file_name;
+          await bucket.file(filePath).download({
+            destination: "temp/downloaded_file",
+          });
+
+          const outputBuffer = readFileSync("temp/downloaded_file");
+          signal.buffer = Buffer.from(outputBuffer).toString("base64");
+        }
+      }
+      return signalInfos;
+    } else {
+      return {};
+    }
+  }
+}
+
+export async function createRun(runName: string, userToken: string) {
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const res = push(ref(database, user.uid + "/runs"), {
+      runName: runName,
+    });
+    const runId = res.key;
+
+    const formData = new FormData();
+    let blob = new Blob([readFileSync("public/hello_example.wav")]);
+    formData.set("blob", blob);
+    await saveNewSignalToRun(
+      runId,
+      defaultModulatorSignals[0],
+      formData,
+      "modulatorSignals",
+      userToken
+    );
+
+    blob = new Blob([readFileSync("public/twinkle_twinkle_little_star.mid")]);
+    formData.set("blob", blob);
+
+    await saveNewSignalToRun(
+      runId,
+      defaultCarrierSignals[0],
+      formData,
+      "carrierSignals",
+      userToken
+    );
+    return runId;
+  }
+}
+
+export async function updateRunName(
+  runId: string,
+  newRunName: string,
+  userToken: string
+) {
+  if (!runId || !newRunName) return;
+
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const snapshot = await get(ref(database, user.uid + "/runs/" + runId));
+    if (!snapshot.exists()) return;
+
+    update(ref(database, user.uid + "/runs/" + runId), {
+      runName: newRunName,
+    });
+  }
+}
+
+export async function saveNewSignalToRun(
+  runId: string,
+  signal,
+  formData,
+  signalType: "modulatorSignals" | "carrierSignals",
+  userToken: string
+) {
+  // upload file_name to storage and store everything else
+  if (!runId || !signalType || !signal) return;
+
+  const auth = getAuth();
+  if (userToken) {
+    let user;
+    try {
+      user = await auth.verifyIdToken(userToken);
+    } catch {
+      return;
+    }
+
+    const file = formData.get("blob") as File;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    writeFileSync("temp/temp_upload", buffer);
+
+    const fileExtension = signal.isAudio ? ".wav" : ".mid";
+    const fileName = uuidv4() + "." + fileExtension;
+    const basePath = user.uid + "/runs/" + runId + "/" + fileName;
+    await bucket.upload("temp/temp_upload", {
+      destination: basePath,
+    });
+
+    update(
+      ref(
+        database,
+        user.uid + "/runs/" + runId + "/" + signalType + "/" + signal.name
+      ),
+      {
+        name: signal["name"],
+        file_name: fileName,
+        isAudio: signal["isAudio"],
+      }
+    );
+  }
 }

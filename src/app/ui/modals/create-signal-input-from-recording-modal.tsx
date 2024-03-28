@@ -18,6 +18,7 @@ export default function CreateSignalInputFromRecordingModal({
   signalType,
   signals,
   setSignals,
+  onSignalAdd,
 }) {
   const [formError, setFormError] = useState<string>("");
   const [isRecording, setIsRecording] = useState(false);
@@ -82,15 +83,14 @@ export default function CreateSignalInputFromRecordingModal({
       return;
     }
 
-    setSignals((prev) => [
-      ...prev,
-      {
-        name: formData.get("name"),
-        label: formData.get("name"),
-        file_name: recordingUrl,
-        audio_name: recordingUrl,
-      },
-    ]);
+    const newSignal = {
+      name: formData.get("name"),
+      file_name: recordingUrl,
+      audio_name: recordingUrl,
+      isAudio: true,
+    };
+    setSignals((prev) => [...prev]);
+    onSignalAdd(newSignal);
 
     setFormError("");
     onClose();
