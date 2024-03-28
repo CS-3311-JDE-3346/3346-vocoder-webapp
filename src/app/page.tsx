@@ -37,9 +37,9 @@ export default function Home() {
 
   return (
     <main className="flex flex-col h-screen">
-      <Header runs={runs} setRunId={setRunId} />
+      <Header runs={runs} setRunId={setRunId} setRuns={setRuns} />
       <div className="flex-grow p-4">
-        <RunVocoderForm runId={runId} />
+        <RunVocoderForm runId={runId} setRuns={setRuns} />
       </div>
       <footer className="p-4">
         <Button color="secondary" className="float-right">

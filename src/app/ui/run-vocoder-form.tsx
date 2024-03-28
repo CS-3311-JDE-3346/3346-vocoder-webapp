@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import {
   createRun,
   getRunInfo,
+  getRuns,
   runVocoder,
   saveNewSignalToRun,
   updateRunName,
@@ -49,6 +50,7 @@ function loadSignals(origSignals) {
 
 export default function RunVocoderForm({
   runId,
+  setRuns,
 }: {
   runId: string | undefined;
 }) {
@@ -169,8 +171,12 @@ export default function RunVocoderForm({
               const inner = async () => {
                 if (isEditingName) {
                   setRunName(runNameTemp);
-                  if (runId && user)
-                    updateRunName(runId, runNameTemp, await user.getIdToken());
+                  if (runId && user) {
+                    const idToken = await user.getIdToken();
+                    updateRunName(runId, runNameTemp, idToken);
+                    const runs = await getRuns(idToken);
+                    setRuns(runs);
+                  }
                 }
                 setIsEditingName((oldValue) => !oldValue);
               };

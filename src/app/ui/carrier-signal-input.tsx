@@ -130,7 +130,7 @@ export default function CarrierSignalInput({signals, setSignals, onSignalAdd}) {
           className="hidden"
           name={`carrier-signal`}
           readOnly
-          value={audioName}
+          value={audioName ? audioName : ''}
         />
         <Select
           label="Carrier Signal"
